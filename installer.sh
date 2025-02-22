@@ -156,7 +156,7 @@ systemctl start fastapi
 # 3.6 Регистрация сервера (POST запрос)
 ########################################
 info "Регистрация сервера на основном сервере..."
-REGISTER_RESPONSE=$(curl -s -X POST https://silkgroup.su/api/register_server \
+REGISTER_RESPONSE=$(curl -s -X POST https://silkgroup.su/api/register_server/ \
     -H "Authorization: ${API_KEY}" \
     -F "name=${SERVER_NAME}" \
     -F "ssl_certificate=@${SSL_DIR}/fullchain.pem")
