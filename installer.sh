@@ -103,14 +103,18 @@ systemctl restart nginx
 info "Настройка WireGuard..."
 chmod +x wireguard-install.sh
 
-info "Запуск первого этапа wireguard-install.sh..."
-# Запускаем wireguard-install.sh (ожидается, что в процессе пользователь нажимает Enter)
-sudo ./wireguard-install.sh
-info "Первый этап завершён. Нажмите Enter для продолжения..."
-read -r
+info "Запуск первого этапа wireguard-install.sh (автоматически нажимаем Enter для всех запросов)..."
+# Передаём 5 пустых строк, чтобы "нажать Enter" для каждого запроса:
+sudo ./wireguard-install.sh <<EOF
+       
+       
+       
+       
+       
+EOF
 
-info "Запуск второго этапа wireguard-install.sh для удаления клиента..."
-# Автоматизация ввода для второго запуска. Здесь используется heredoc для передачи ввода.
+info "Первый этап завершён. Запуск второго этапа для удаления клиента..."
+# Автоматизация ввода для второго этапа:
 sudo ./wireguard-install.sh <<EOF
 2
 1
