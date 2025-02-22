@@ -54,6 +54,12 @@ while true; do
     fi
 done
 
+# Записываем введённый API ключ в файл api_tokens.json в виде JSON-массива
+echo "[\"${API_KEY}\"]" > api_tokens.json
+
+# Выводим сообщение об успешном сохранении
+echo "API ключ сохранён в файл api_tokens.json"
+
 # 2.3 Генерация самоподписанного SSL сертификата
 info "Генерация самоподписанного SSL сертификата..."
 SSL_DIR="/root/ssl"
