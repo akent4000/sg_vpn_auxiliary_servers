@@ -55,7 +55,7 @@ while true; do
 done
 
 # Записываем введённый API ключ в файл api_tokens.json в виде JSON-массива
-echo "[\"${API_KEY}\"]" > api_tokens.json
+echo "[\"${API_KEY}\"]" > "$INSTALL_DIR/api_tokens.json"
 
 # Выводим сообщение об успешном сохранении
 echo "API ключ сохранён в файл api_tokens.json"
