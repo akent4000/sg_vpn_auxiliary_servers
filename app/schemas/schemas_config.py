@@ -63,3 +63,12 @@ class VPNListSchema(BaseModel):
 
 class APIKeySchema(BaseModel):
     api_key: str
+
+
+class SSHAuthToggleSchema(BaseModel):
+    enable: bool
+
+
+class SSHKeySchema(BaseModel):
+    username: str
+    public_key: str
