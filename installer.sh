@@ -193,6 +193,9 @@ EOF
 chmod +x "$AUTO_UPDATE_SCRIPT"
 
 # Добавление задания в crontab (если его там ещё нет)
-(crontab -l 2>/dev/null | grep -v "$AUTO_UPDATE_SCRIPT" ; echo "* * * * * $AUTO_UPDATE_SCRIPT") | crontab -
-
+if crontab -l 2>/dev/null; then
+    (crontab -l 2>/dev/null | grep -v "${AUTO_UPDATE_SCRIPT}" ; echo "* * * * * ${AUTO_UPDATE_SCRIPT}") | crontab -
+else
+    echo "* * * * * ${AUTO_UPDATE_SCRIPT}" | crontab -
+fi
 info "Установка завершена."
