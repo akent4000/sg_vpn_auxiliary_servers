@@ -83,7 +83,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 info "Installing Python dependencies from requirements.txt..."
-sudo pip install --break-system-packages -r requirements.txt
+pip install --break-system-packages -r requirements.txt
 
 ########################################
 # 3.2 Install and configure nginx

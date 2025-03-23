@@ -238,7 +238,7 @@ if [[ ! -e /etc/wireguard/wg0.conf ]]; then
 	echo
 	echo "WireGuard installation is ready to begin."
 	# Install a firewall if firewalld or iptables are not already available
-	if ! systemctl is-active --quiet firewalld.service && ! hash iptables 2>/dev/null; then
+	if ! sudo systemctl is-active --quiet firewalld.service && ! hash iptables 2>/dev/null; then
 		if [[ "$os" == "centos" || "$os" == "fedora" ]]; then
 			firewall="firewalld"
 			echo "firewalld, which is required to manage routing tables, will also be installed."
@@ -350,20 +350,20 @@ EOF"
 		sudo firewall-cmd --zone=trusted --add-source=10.7.0.0/24
 		sudo firewall-cmd --permanent --add-port="$port"/udp
 		sudo firewall-cmd --permanent --zone=trusted --add-source=10.7.0.0/24
-		sudo firewall-cmd --direct --add-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "\$ip"
-		sudo firewall-cmd --permanent --direct --add-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "\$ip"
-		if [[ -n "\$ip6" ]]; then
+		sudo firewall-cmd --direct --add-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "$ip"
+		sudo firewall-cmd --permanent --direct --add-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "$ip"
+		if [[ -n "$ip6" ]]; then
 			sudo firewall-cmd --zone=trusted --add-source=fddd:2c4:2c4:2c4::/64
 			sudo firewall-cmd --permanent --zone=trusted --add-source=fddd:2c4:2c4:2c4::/64
-			sudo firewall-cmd --direct --add-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "\$ip6"
-			sudo firewall-cmd --permanent --direct --add-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "\$ip6"
+			sudo firewall-cmd --direct --add-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "$ip6"
+			sudo firewall-cmd --permanent --direct --add-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "$ip6"
 		fi
 	else
-		iptables_path=\$(command -v iptables)
-		ip6tables_path=\$(command -v ip6tables)
-		if [[ \$(systemd-detect-virt) == "openvz" ]] && readlink -f "\$(command -v iptables)" | grep -q "nft" && hash iptables-legacy 2>/dev/null; then
-			iptables_path=\$(command -v iptables-legacy)
-			ip6tables_path=\$(command -v ip6tables-legacy)
+		iptables_path=$(command -v iptables)
+		ip6tables_path=$(command -v ip6tables)
+		if [[ $(systemd-detect-virt) == "openvz" ]] && readlink -f "$(command -v iptables)" | grep -q "nft" && hash iptables-legacy 2>/dev/null; then
+			iptables_path=$(command -v iptables-legacy)
+			ip6tables_path=$(command -v ip6tables-legacy)
 		fi
 		sudo bash -c "cat << EOF > /etc/systemd/system/wg-iptables.service
 [Unit]
@@ -377,16 +377,17 @@ ExecStart=\$iptables_path -I FORWARD -m state --state RELATED,ESTABLISHED -j ACC
 ExecStop=\$iptables_path -t nat -D POSTROUTING -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to \$ip
 ExecStop=\$iptables_path -D INPUT -p udp --dport \$port -j ACCEPT
 ExecStop=\$iptables_path -D FORWARD -s 10.7.0.0/24 -j ACCEPT
-ExecStop=\$iptables_path -D FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT"
-if [[ -n "\$ip6" ]]; then
-	sudo bash -c "echo \"ExecStart=\$ip6tables_path -t nat -A POSTROUTING -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to \$ip6
+ExecStop=\$iptables_path -D FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+EOF"
+		if [[ -n "$ip6" ]]; then
+			sudo bash -c "echo \"ExecStart=\$ip6tables_path -t nat -A POSTROUTING -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to \$ip6
 ExecStart=\$ip6tables_path -I FORWARD -s fddd:2c4:2c4:2c4::/64 -j ACCEPT
 ExecStart=\$ip6tables_path -I FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
 ExecStop=\$ip6tables_path -t nat -D POSTROUTING -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to \$ip6
 ExecStop=\$ip6tables_path -D FORWARD -s fddd:2c4:2c4:2c4::/64 -j ACCEPT
 ExecStop=\$ip6tables_path -D FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\" >> /etc/systemd/system/wg-iptables.service"
-fi
-sudo bash -c "cat << EOF >> /etc/systemd/system/wg-iptables.service
+		fi
+		sudo bash -c "cat << EOF >> /etc/systemd/system/wg-iptables.service
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
@@ -396,7 +397,7 @@ EOF"
 	# Generate the custom client.conf
 	new_client_setup
 	sudo systemctl enable --now wg-quick@wg0.service
-	if [[ "\$boringtun_updates" =~ ^[yY]\$ ]]; then
+	if [[ "$boringtun_updates" =~ ^[yY]$ ]]; then
 		sudo bash -c "cat << 'EOF' > /usr/local/sbin/boringtun-upgrade
 #!/bin/bash
 latest=\$(wget -qO- https://wg.nyr.be/1/latest 2>/dev/null || curl -sL https://wg.nyr.be/1/latest 2>/dev/null)
@@ -423,27 +424,27 @@ else
 fi
 EOF"
 		sudo chmod +x /usr/local/sbin/boringtun-upgrade
-		{ crontab -l 2>/dev/null; echo "\$(( \$RANDOM % 60 )) \$(( \$RANDOM % 3 + 3 )) * * * /usr/local/sbin/boringtun-upgrade &>/dev/null" ; } | crontab -
+		{ crontab -l 2>/dev/null; echo "$(( RANDOM % 60 )) $(( RANDOM % 3 + 3 )) * * * /usr/local/sbin/boringtun-upgrade &>/dev/null" ; } | crontab -
 	fi
 	echo
-	qrencode -t UTF8 < ~/"\$client.conf"
+	qrencode -t UTF8 < ~/"$client.conf"
 	echo -e '\xE2\x86\x91 That is a QR code containing your client configuration.'
 	echo
-	if [[ ! "\$is_container" -eq 0 ]] && ! sudo modprobe -nq wireguard; then
+	if [[ ! "$is_container" -eq 0 ]] && ! sudo modprobe -nq wireguard; then
 		echo "Warning!"
 		echo "Installation was finished, but the WireGuard kernel module could not load."
-		if [[ "\$os" == "ubuntu" && "\$os_version" -eq 1804 ]]; then
+		if [[ "$os" == "ubuntu" && "$os_version" -eq 1804 ]]; then
 			echo 'Upgrade the kernel and headers with "sudo apt-get install linux-generic" and restart.'
-		elif [[ "\$os" == "debian" && "\$os_version" -eq 10 ]]; then
-			echo "Upgrade the kernel with \"sudo apt-get install linux-image-\$(uname -r)\" and restart."
-		elif [[ "\$os" == "centos" && "\$os_version" -le 8 ]]; then
+		elif [[ "$os" == "debian" && "$os_version" -eq 10 ]]; then
+			echo "Upgrade the kernel with \"sudo apt-get install linux-image-$(uname -r)\" and restart."
+		elif [[ "$os" == "centos" && "$os_version" -le 8 ]]; then
 			echo "Reboot the system to load the most recent kernel."
 		fi
 	else
 		echo "Finished!"
 	fi
 	echo
-	echo "The client configuration is available in:" ~/"\$client.conf"
+	echo "The client configuration is available in:" ~/"$client.conf"
 	echo "New clients can be added by running this script again."
 else
 	clear
@@ -455,35 +456,35 @@ else
 	echo "   3) Remove WireGuard"
 	echo "   4) Exit"
 	read -p "Option: " option
-	until [[ "\$option" =~ ^[1-4]\$ ]]; do
-		echo "\$option: invalid selection."
+	until [[ "$option" =~ ^[1-4]$ ]]; do
+		echo "$option: invalid selection."
 		read -p "Option: " option
 	done
-	case "\$option" in
+	case "$option" in
 		1)
 			echo
 			echo "Provide a name for the client:"
 			read -p "Name: " unsanitized_client
-			client=\$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<< "\$unsanitized_client" | cut -c-15)
-			while [[ -z "\$client" ]] || grep -q "^# BEGIN_PEER \$client\$" /etc/wireguard/wg0.conf; do
-				echo "\$client: invalid name."
+			client=$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<< "$unsanitized_client" | cut -c-15)
+			while [[ -z "$client" ]] || grep -q "^# BEGIN_PEER $client$" /etc/wireguard/wg0.conf; do
+				echo "$client: invalid name."
 				read -p "Name: " unsanitized_client
-				client=\$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<< "\$unsanitized_client" | cut -c-15)
+				client=$(sed 's/[^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-]/_/g' <<< "$unsanitized_client" | cut -c-15)
 			done
 			echo
 			new_client_dns
 			new_client_setup
-			sudo wg addconf wg0 <(sed -n "/^# BEGIN_PEER \$client/,/^# END_PEER \$client/p" /etc/wireguard/wg0.conf)
+			sudo wg addconf wg0 <(sed -n "/^# BEGIN_PEER $client/,/^# END_PEER $client/p" /etc/wireguard/wg0.conf)
 			echo
-			qrencode -t UTF8 < ~/"\$client.conf"
+			qrencode -t UTF8 < ~/"$client.conf"
 			echo -e '\xE2\x86\x91 That is a QR code containing your client configuration.'
 			echo
-			echo "\$client added. Configuration available in:" ~/"\$client.conf"
+			echo "$client added. Configuration available in:" ~/"$client.conf"
 			exit
 		;;
 		2)
-			number_of_clients=\$(grep -c '^# BEGIN_PEER' /etc/wireguard/wg0.conf)
-			if [[ "\$number_of_clients" = 0 ]]; then
+			number_of_clients=$(grep -c '^# BEGIN_PEER' /etc/wireguard/wg0.conf)
+			if [[ "$number_of_clients" = 0 ]]; then
 				echo
 				echo "There are no existing clients!"
 				exit
@@ -492,52 +493,52 @@ else
 			echo "Select the client to remove:"
 			grep '^# BEGIN_PEER' /etc/wireguard/wg0.conf | cut -d ' ' -f 3 | nl -s ') '
 			read -p "Client: " client_number
-			until [[ "\$client_number" =~ ^[0-9]+\$ && "\$client_number" -le "\$number_of_clients" ]]; do
-				echo "\$client_number: invalid selection."
+			until [[ "$client_number" =~ ^[0-9]+$ && "$client_number" -le "$number_of_clients" ]]; do
+				echo "$client_number: invalid selection."
 				read -p "Client: " client_number
 			done
-			client=\$(grep '^# BEGIN_PEER' /etc/wireguard/wg0.conf | cut -d ' ' -f 3 | sed -n "\$client_number"p)
+			client=$(grep '^# BEGIN_PEER' /etc/wireguard/wg0.conf | cut -d ' ' -f 3 | sed -n "$client_number"p)
 			echo
-			read -p "Confirm \$client removal? [y/N]: " remove
-			until [[ "\$remove" =~ ^[yYnN]*\$ ]]; do
-				echo "\$remove: invalid selection."
-				read -p "Confirm \$client removal? [y/N]: " remove
+			read -p "Confirm $client removal? [y/N]: " remove
+			until [[ "$remove" =~ ^[yYnN]*$ ]]; do
+				echo "$remove: invalid selection."
+				read -p "Confirm $client removal? [y/N]: " remove
 			done
-			if [[ "\$remove" =~ ^[yY]\$ ]]; then
-				pubkey=\$(sed -n "/^# BEGIN_PEER \$client\$/,\$p" /etc/wireguard/wg0.conf | grep -m 1 PublicKey | cut -d " " -f 3)
-				sudo wg set wg0 peer "\$pubkey" remove
-				sudo sed -i "/^# BEGIN_PEER \$client\$/,/^# END_PEER \$client\$/d" /etc/wireguard/wg0.conf
+			if [[ "$remove" =~ ^[yY]$ ]]; then
+				pubkey=$(sed -n "/^# BEGIN_PEER $client$/,\$p" /etc/wireguard/wg0.conf | grep -m 1 PublicKey | cut -d " " -f 3)
+				sudo wg set wg0 peer "$pubkey" remove
+				sudo sed -i "/^# BEGIN_PEER $client$/,/^# END_PEER $client$/d" /etc/wireguard/wg0.conf
 				echo
-				echo "\$client removed!"
+				echo "$client removed!"
 			else
 				echo
-				echo "\$client removal aborted!"
+				echo "$client removal aborted!"
 			fi
 			exit
 		;;
 		3)
 			echo
 			read -p "Confirm WireGuard removal? [y/N]: " remove
-			until [[ "\$remove" =~ ^[yYnN]*\$ ]]; do
-				echo "\$remove: invalid selection."
+			until [[ "$remove" =~ ^[yYnN]*$ ]]; do
+				echo "$remove: invalid selection."
 				read -p "Confirm WireGuard removal? [y/N]: " remove
 			done
-			if [[ "\$remove" =~ ^[yY]\$ ]]; then
-				port=\$(grep '^ListenPort' /etc/wireguard/wg0.conf | cut -d " " -f 3)
+			if [[ "$remove" =~ ^[yY]$ ]]; then
+				port=$(grep '^ListenPort' /etc/wireguard/wg0.conf | cut -d " " -f 3)
 				if sudo systemctl is-active --quiet firewalld.service; then
-					ip=\$(sudo firewall-cmd --direct --get-rules ipv4 nat POSTROUTING | grep '\-s 10.7.0.0/24 '"'"'!'"'"' -d 10.7.0.0/24' | grep -oE '[^ ]+\$')
-					sudo firewall-cmd --remove-port="\$port"/udp
+					ip=$(sudo firewall-cmd --direct --get-rules ipv4 nat POSTROUTING | grep '\-s 10.7.0.0/24 '"'"'!'"'"' -d 10.7.0.0/24' | grep -oE '[^ ]+$')
+					sudo firewall-cmd --remove-port="$port"/udp
 					sudo firewall-cmd --zone=trusted --remove-source=10.7.0.0/24
-					sudo firewall-cmd --permanent --remove-port="\$port"/udp
+					sudo firewall-cmd --permanent --remove-port="$port"/udp
 					sudo firewall-cmd --permanent --zone=trusted --remove-source=10.7.0.0/24
-					sudo firewall-cmd --direct --remove-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "\$ip"
-					sudo firewall-cmd --permanent --direct --remove-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "\$ip"
+					sudo firewall-cmd --direct --remove-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "$ip"
+					sudo firewall-cmd --permanent --direct --remove-rule ipv4 nat POSTROUTING 0 -s 10.7.0.0/24 \! -d 10.7.0.0/24 -j SNAT --to "$ip"
 					if grep -qs 'fddd:2c4:2c4:2c4::1/64' /etc/wireguard/wg0.conf; then
-						ip6=\$(sudo firewall-cmd --direct --get-rules ipv6 nat POSTROUTING | grep '\-s fddd:2c4:2c4:2c4::/64 '"'"'!'"'"' -d fddd:2c4:2c4:2c4::/64' | grep -oE '[^ ]+\$')
+						ip6=$(sudo firewall-cmd --direct --get-rules ipv6 nat POSTROUTING | grep '\-s fddd:2c4:2c4:2c4::/64 '"'"'!'"'"' -d fddd:2c4:2c4:2c4::/64' | grep -oE '[^ ]+$')
 						sudo firewall-cmd --zone=trusted --remove-source=fddd:2c4:2c4:2c4::/64
 						sudo firewall-cmd --permanent --zone=trusted --remove-source=fddd:2c4:2c4:2c4::/64
-						sudo firewall-cmd --direct --remove-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "\$ip6"
-						sudo firewall-cmd --permanent --direct --remove-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "\$ip6"
+						sudo firewall-cmd --direct --remove-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "$ip6"
+						sudo firewall-cmd --permanent --direct --remove-rule ipv6 nat POSTROUTING 0 -s fddd:2c4:2c4:2c4::/64 \! -d fddd:2c4:2c4:2c4::/64 -j SNAT --to "$ip6"
 					fi
 				else
 					sudo systemctl disable --now wg-iptables.service
@@ -546,50 +547,50 @@ else
 				sudo systemctl disable --now wg-quick@wg0.service
 				sudo rm -f /etc/systemd/system/wg-quick@wg0.service.d/boringtun.conf
 				sudo rm -f /etc/sysctl.d/99-wireguard-forward.conf
-				if [[ ! "\$is_container" -eq 0 ]]; then
-					if [[ "\$os" == "ubuntu" ]]; then
+				if [[ ! "$is_container" -eq 0 ]]; then
+					if [[ "$os" == "ubuntu" ]]; then
 						sudo rm -rf /etc/wireguard/
 						sudo apt-get remove --purge -y wireguard wireguard-tools
-					elif [[ "\$os" == "debian" && "\$os_version" -ge 11 ]]; then
+					elif [[ "$os" == "debian" && "$os_version" -ge 11 ]]; then
 						sudo rm -rf /etc/wireguard/
 						sudo apt-get remove --purge -y wireguard wireguard-tools
-					elif [[ "\$os" == "debian" && "\$os_version" -eq 10 ]]; then
+					elif [[ "$os" == "debian" && "$os_version" -eq 10 ]]; then
 						sudo rm -rf /etc/wireguard/
 						sudo apt-get remove --purge -y wireguard wireguard-dkms wireguard-tools
-					elif [[ "\$os" == "centos" && "\$os_version" -ge 9 ]]; then
+					elif [[ "$os" == "centos" && "$os_version" -ge 9 ]]; then
 						sudo dnf remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
-					elif [[ "\$os" == "centos" && "\$os_version" -eq 8 ]]; then
-						sudo dnf remove -y kmod-wireguard wireguard-tools
+					elif [[ "$os" == "centos" && "$os_version" -eq 8 ]]; then
+						sudo dnf remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
-					elif [[ "\$os" == "centos" && "\$os_version" -eq 7 ]]; then
-						sudo yum remove -y kmod-wireguard wireguard-tools
+					elif [[ "$os" == "centos" && "$os_version" -eq 7 ]]; then
+						sudo yum remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
-					elif [[ "\$os" == "fedora" ]]; then
+					elif [[ "$os" == "fedora" ]]; then
 						sudo dnf remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
 					fi
 				else
 					{ crontab -l 2>/dev/null | grep -v '/usr/local/sbin/boringtun-upgrade' ; } | crontab -
-					if [[ "\$os" == "ubuntu" ]]; then
+					if [[ "$os" == "ubuntu" ]]; then
 						sudo rm -rf /etc/wireguard/
 						sudo apt-get remove --purge -y wireguard-tools
-					elif [[ "\$os" == "debian" && "\$os_version" -ge 11 ]]; then
+					elif [[ "$os" == "debian" && "$os_version" -ge 11 ]]; then
 						sudo rm -rf /etc/wireguard/
 						sudo apt-get remove --purge -y wireguard-tools
-					elif [[ "\$os" == "debian" && "\$os_version" -eq 10 ]]; then
+					elif [[ "$os" == "debian" && "$os_version" -eq 10 ]]; then
 						sudo rm -rf /etc/wireguard/
 						sudo apt-get remove --purge -y wireguard-tools
-					elif [[ "\$os" == "centos" && "\$os_version" -ge 9 ]]; then
+					elif [[ "$os" == "centos" && "$os_version" -ge 9 ]]; then
 						sudo dnf remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
-					elif [[ "\$os" == "centos" && "\$os_version" -eq 8 ]]; then
+					elif [[ "$os" == "centos" && "$os_version" -eq 8 ]]; then
 						sudo dnf remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
-					elif [[ "\$os" == "centos" && "\$os_version" -eq 7 ]]; then
+					elif [[ "$os" == "centos" && "$os_version" -eq 7 ]]; then
 						sudo yum remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
-					elif [[ "\$os" == "fedora" ]]; then
+					elif [[ "$os" == "fedora" ]]; then
 						sudo dnf remove -y wireguard-tools
 						sudo rm -rf /etc/wireguard/
 					fi
