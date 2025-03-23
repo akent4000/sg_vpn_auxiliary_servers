@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.schemas.schemas_config import *
 from app.utils.wg_manager import WireGuardManager
-from app.utils.ssh_manager import SSHAccessManager  # Предполагается, что этот класс реализован
+from app.utils.ssh_manager import SSHAccessManager
 from logger_setup import logger
 
 app = FastAPI()
