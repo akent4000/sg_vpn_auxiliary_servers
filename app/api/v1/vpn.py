@@ -19,10 +19,10 @@ router = APIRouter()
 API_TOKEN_FILE = "api_tokens.json"
 
 def load_api_tokens() -> list:
-    """
+    '''
     Loads the list of API tokens from a file.
     If the file does not exist or the data is incorrect, returns an empty list.
-    """
+    '''
     try:
         with open(API_TOKEN_FILE, "r") as f:
             tokens = json.load(f)
@@ -33,9 +33,9 @@ def load_api_tokens() -> list:
     return tokens
 
 def save_api_tokens(tokens: list) -> None:
-    """
+    '''
     Saves the list of API tokens to a file.
-    """
+    '''
     with open(API_TOKEN_FILE, "w") as f:
         json.dump(tokens, f)
 
@@ -51,9 +51,9 @@ async def client_exists_exception_handler(request: Request, exc: ClientExistsExc
     )
 
 def verify_token(auth_token: str = Header(..., alias="Authorization")):
-    """
+    '''
     Verifies that the provided token is present in the list of tokens loaded from the file.
-    """
+    '''
     tokens = load_api_tokens()
     if not auth_token or auth_token not in tokens:
         raise HTTPException(

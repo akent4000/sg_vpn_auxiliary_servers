@@ -20,9 +20,9 @@ class SSHAccessManager:
         self.sshd_config_path = sshd_config_path
 
     def _update_config_option(self, option, value):
-        """
+        '''
         Updates (or adds, if not found) the option in the SSH configuration file.
-        """
+        '''
         found = False
         lines = []
         try:
@@ -47,25 +47,25 @@ class SSHAccessManager:
             logger.error(f"Error writing configuration file {self.sshd_config_path}: {e}")
 
     def set_password_auth(self, enable: bool):
-        """
+        '''
         Enables (True) or disables (False) password authentication.
-        """
+        '''
         value = 'yes' if enable else 'no'
         self._update_config_option("PasswordAuthentication", value)
         self.reload_ssh_service()
 
     def set_pubkey_auth(self, enable: bool):
-        """
+        '''
         Enables (True) or disables (False) SSH key authentication.
-        """
+        '''
         value = 'yes' if enable else 'no'
         self._update_config_option("PubkeyAuthentication", value)
         self.reload_ssh_service()
 
     def reload_ssh_service(self):
-        """
+        '''
         Reloads the SSH service to apply configuration changes.
-        """
+        '''
         try:
             subprocess.check_call(['systemctl', 'reload', 'sshd'])
             logger.info("SSH service reloaded successfully.")
@@ -73,10 +73,10 @@ class SSHAccessManager:
             logger.error(f"Error reloading SSH service: {e}")
 
     def add_ssh_key(self, username: str, public_key: str):
-        """
+        '''
         Adds a public SSH key to the specified user's authorized_keys file.
         If the .ssh directory or authorized_keys file does not exist, they will be created.
-        """
+        '''
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
@@ -105,9 +105,9 @@ class SSHAccessManager:
             self.reload_ssh_service()
 
     def remove_ssh_key(self, username: str, public_key: str):
-        """
+        '''
         Removes the specified public SSH key from the user's authorized_keys file.
-        """
+        '''
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
@@ -135,10 +135,10 @@ class SSHAccessManager:
             self.reload_ssh_service()
 
     def get_ssh_keys(self, username: str):
-        """
+        '''
         Возвращает список всех SSH ключей для указанного пользователя, прочитанных из файла authorized_keys.
         Если файл или каталог .ssh не существует, возвращается пустой список.
-        """
+        '''
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:

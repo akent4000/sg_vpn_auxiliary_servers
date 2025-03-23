@@ -8,7 +8,7 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Контекстный менеджер для обработки событий старта и завершения приложения."""
+    '''Контекстный менеджер для обработки событий старта и завершения приложения.'''
     logger_setup.logger.info("Приложение успешно запущено.")
     yield
     logger_setup.logger.info("Приложение завершено.")

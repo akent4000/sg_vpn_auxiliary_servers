@@ -29,10 +29,10 @@ class WireGuardManager:
 
     @staticmethod
     def run_command(cmd: List[str], input_data: Optional[bytes] = None) -> str:
-        """
+        '''
         Запускает команду и возвращает результат в виде строки.
         При ошибке выбрасывает исключение RuntimeError.
-        """
+        '''
         logger.debug(f"Выполнение команды: {' '.join(cmd)}")
         try:
             result = subprocess.run(cmd, input=input_data, capture_output=True, check=True)
@@ -45,7 +45,7 @@ class WireGuardManager:
             raise RuntimeError(f"Команда {' '.join(cmd)} завершилась с ошибкой: {error_msg}") from e
 
     def get_assigned_octets(self) -> set[int]:
-        """Возвращает множество уже назначенных октетов из конфигурации сервера."""
+        '''Возвращает множество уже назначенных октетов из конфигурации сервера.'''
         matches = re.findall(r"AllowedIPs\s*=\s*10\.7\.0\.(\d+)/32", self.wg_conf)
         assigned = {int(x) for x in matches}
         logger.debug(f"Назначенные октеты: {assigned}")
@@ -53,7 +53,7 @@ class WireGuardManager:
 
     @staticmethod
     def get_first_free_octet(assigned: set[int], start: int = 2, end: int = 254) -> int:
-        """Возвращает первый свободный октет для клиента."""
+        '''Возвращает первый свободный октет для клиента.'''
         for octet in range(start, end + 1):
             if octet not in assigned:
                 logger.debug(f"Найден свободный октет: {octet}")
@@ -62,10 +62,10 @@ class WireGuardManager:
         raise ValueError("Внутренняя подсеть WireGuard заполнена: нет свободных октетов.")
 
     def get_server_public_key(self) -> str:
-        """
+        '''
         Извлекает приватный ключ сервера из конфигурации и возвращает соответствующий публичный ключ.
         Если ключ не найден или произошла ошибка, возвращает 'UNKNOWN'.
-        """
+        '''
         match = re.search(r"PrivateKey\s*=\s*([\w+/=]+)", self.wg_conf)
         if match:
             server_priv = match.group(1)
@@ -81,10 +81,10 @@ class WireGuardManager:
 
     @staticmethod
     def get_endpoint(conf: str) -> str:
-        """
+        '''
         Извлекает Endpoint из комментария в конфигурации (например, '# ENDPOINT <ip>').
         Если не найден, возвращает 'SERVER_IP'.
-        """
+        '''
         match = re.search(r"^# ENDPOINT\s+(\S+)", conf, re.MULTILINE)
         endpoint = match.group(1) if match else "SERVER_IP"
         logger.debug(f"Получен endpoint: {endpoint}")
@@ -92,10 +92,10 @@ class WireGuardManager:
 
     @staticmethod
     def get_listen_port(conf: str) -> str:
-        """
+        '''
         Извлекает ListenPort из конфигурации.
         Если не найден, возвращает порт по умолчанию '51820'.
-        """
+        '''
         match = re.search(r"ListenPort\s+(\d+)", conf)
         port = match.group(1) if match else "51820"
         logger.debug(f"Получен порт прослушивания: {port}")
@@ -103,12 +103,12 @@ class WireGuardManager:
 
     @staticmethod
     def generate_client_keys() -> Tuple[str, str, str]:
-        """
+        '''
         Генерирует ключи для клиента:
           - приватный ключ (client_key),
           - предварительно разделённый ключ (psk),
           - публичный ключ (client_pub) на основе приватного.
-        """
+        '''
         try:
             client_key = WireGuardManager.run_command(["wg", "genkey"])
             psk = WireGuardManager.run_command(["wg", "genpsk"])
@@ -120,9 +120,9 @@ class WireGuardManager:
             raise
 
     def update_server_config(self, new_content: str) -> None:
-        """
+        '''
         Записывает новое содержимое конфигурационного файла сервера.
-        """
+        '''
         try:
             with self.WG_CONF_PATH.open("w") as conf_file:
                 conf_file.write(new_content)
@@ -133,9 +133,9 @@ class WireGuardManager:
             raise
 
     def restart_wireguard(self) -> None:
-        """
+        '''
         Перезапускает сервис WireGuard.
-        """
+        '''
         try:
             self.run_command(["systemctl", "restart", self.WG_SERVICE])
             logger.info("Сервис WireGuard перезапущен.")
@@ -144,7 +144,7 @@ class WireGuardManager:
             raise
 
     def new_client_setup(self, client: str, dns: str = "8.8.8.8, 8.8.4.4") -> str:
-        """
+        '''
         Настраивает нового клиента WireGuard:
           - обновляет конфигурационный файл сервера wg0.conf,
           - перезапускает WireGuard,
@@ -153,7 +153,7 @@ class WireGuardManager:
         :param client: Имя клиента (используется как метка в конфигурации).
         :param dns: DNS-сервер для клиента.
         :return: Текст конфигурации клиента.
-        """
+        '''
         logger.info(f"Начинается настройка нового клиента: {client}")
         try:
             # Определяем уже назначенные октеты и находим первый свободный
@@ -221,22 +221,22 @@ class WireGuardManager:
             raise
 
     def get_clients_list(self) -> List[str]:
-        """
+        '''
         Возвращает список имен клиентов, найденных в конфигурационном файле (по меткам BEGIN_PEER).
-        """
+        '''
         clients = re.findall(r"^# BEGIN_PEER\s+(.+)$", self.wg_conf, re.MULTILINE)
         logger.info(f"Найдено клиентов: {clients}")
         return clients
 
     def remove_client(self, client: str) -> bool | str:
-        """
+        '''
         Удаляет клиента WireGuard из live-интерфейса и из конфигурационного файла сервера.
         
         :param client: Имя клиента для удаления.
         :return True: Если клиент удален.
         :return ValueError: Если клиент не найден
         :return str: Если не удалось удалить, то текст ошибки
-        """
+        '''
         logger.info(f"Начинается удаление клиента: {client}")
         try:
             # Извлекаем блок клиента из конфигурации
@@ -269,10 +269,10 @@ class WireGuardManager:
             return f"Ошибка при удалении клиента {client}: {e}"
 
     def get_peers_info(self) -> List[dict]:
-        """
+        '''
         Выполняет команду 'wg show' и извлекает информацию о пирах (peers) из её вывода.
         Возвращает список словарей с информацией по каждому peer.
-        """
+        '''
         try:
             result = subprocess.run(['wg', 'show'], capture_output=True, text=True, check=True)
             output = result.stdout

@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class VPNCreateSchema(BaseModel):
-    """Создание нового конфига."""
+    '''Создание нового конфига.'''
     telegram_id: int
 
     class Config:
@@ -35,7 +35,7 @@ class VPNCreateResponseSchema(BaseModel):
 
 
 class VPNRemoveSchema(BaseModel):
-    """Удаление конфига."""
+    '''Удаление конфига.'''
     config_name: str
     status: bool
     msg: str
@@ -51,7 +51,7 @@ class VPNRemoveSchema(BaseModel):
 
 
 class VPNListSchema(BaseModel):
-    """Список конфигов."""
+    '''Список конфигов.'''
     config_name: str
 
     class Config:
