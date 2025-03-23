@@ -71,7 +71,7 @@ async def get_vpn_list(token: str = Depends(verify_token)):
         content=wg_clients,
     )
 
-@router.post("/create-vpn/", response_model=VPNCreateResponseSchema, tags=["VPN"], summary="Создание нового конфига")
+@router.post("/create-vpn", response_model=VPNCreateResponseSchema, tags=["VPN"], summary="Создание нового конфига")
 async def create_vpn(token: str = Depends(verify_token)):
     config_name = f"{int(time.time())}"
     wg_manager = WireGuardManager()
@@ -204,6 +204,15 @@ async def remove_ssh_key(request_data: SSHKeySchema, token: str = Depends(verify
     return JSONResponse(
         status_code=200,
         content={"message": message}
+    )
+
+@router.get("/ssh/get-keys", tags=["SSH"], summary="Получение SSH ключей для пользователя")
+async def get_ssh_keys(username: str, token: str = Depends(verify_token)):
+    ssh_manager = SSHAccessManager()
+    keys = ssh_manager.get_ssh_keys(username)
+    return JSONResponse(
+        status_code=200,
+        content={"username": username, "keys": keys}
     )
 
 # Регистрация роутера в приложении

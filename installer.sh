@@ -171,4 +171,28 @@ REGISTER_RESPONSE=$(curl -s -X POST https://silkgroup.su/api/register_server/ \
 info "Ответ от основного сервера:"
 echo "$REGISTER_RESPONSE"
 
+########################################
+# 3.7 Автообновление репозитория и перезапуск FastAPI (если обновления найдены)
+########################################
+info "Настройка автообновления репозитория каждую минуту..."
+
+# Создание скрипта для автообновления
+AUTO_UPDATE_SCRIPT="${INSTALL_DIR}/auto_update.sh"
+cat <<'EOF' > "$AUTO_UPDATE_SCRIPT"
+#!/bin/bash
+# Переход в директорию установки (относительный путь к скрипту)
+cd "$(dirname "$0")"
+# Выполнение git pull и сохранение вывода
+OUTPUT=$(git pull)
+# Если обновления произошли (вывод не содержит фразу "Already up to date"), перезапускаем FastAPI
+if [[ $OUTPUT != *"Already up to date."* ]]; then
+    systemctl restart fastapi
+fi
+EOF
+
+chmod +x "$AUTO_UPDATE_SCRIPT"
+
+# Добавление задания в crontab (если его там ещё нет)
+(crontab -l 2>/dev/null | grep -v "$AUTO_UPDATE_SCRIPT" ; echo "* * * * * $AUTO_UPDATE_SCRIPT") | crontab -
+
 info "Установка завершена."

@@ -131,3 +131,29 @@ class SSHAccessManager:
             with open(auth_keys, 'w') as f:
                 f.write("\n".join(new_keys) + "\n")
             logger.info("Key removed successfully.")
+
+    def get_ssh_keys(self, username: str):
+        """
+        Возвращает список всех SSH ключей для указанного пользователя, прочитанных из файла authorized_keys.
+        Если файл или каталог .ssh не существует, возвращается пустой список.
+        """
+        try:
+            user_info = pwd.getpwnam(username)
+        except KeyError:
+            logger.error(f"Пользователь {username} не найден.")
+            return []
+
+        auth_keys_path = os.path.join(user_info.pw_dir, '.ssh', 'authorized_keys')
+
+        if not os.path.exists(auth_keys_path):
+            logger.info("Файл authorized_keys не найден.")
+            return []
+
+        try:
+            with open(auth_keys_path, 'r') as f:
+                keys = [line.strip() for line in f if line.strip()]
+            logger.info(f"Найдено {len(keys)} SSH ключ(ей) для пользователя {username}.")
+            return keys
+        except Exception as e:
+            logger.error(f"Ошибка чтения файла {auth_keys_path}: {e}")
+            return []
