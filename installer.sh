@@ -159,17 +159,7 @@ systemctl restart nginx
 systemctl start fastapi
 
 ########################################
-# 3.6 Автоматическое включение входа для root
-########################################
-info "Включение входа для root..."
-sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-systemctl reload sshd
-info "Вход для root включен."
-
-info "Установка завершена."
-
-########################################
-# 3.7 Регистрация сервера (POST запрос)
+# 3.6 Регистрация сервера (POST запрос)
 ########################################
 info "Регистрация сервера на основном сервере..."
 REGISTER_RESPONSE=$(curl -s -X POST https://silkgroup.su/api/register_server/ \
