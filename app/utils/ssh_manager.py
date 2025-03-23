@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa, ed25519
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
-# Setup logging
+# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
@@ -21,7 +21,7 @@ class SSHAccessManager:
 
     def _update_config_option(self, option, value):
         """
-        Updates (or adds, if not found) an option in the SSH configuration file.
+        Обновляет (или добавляет, если не найдено) опцию в файле конфигурации SSH.
         """
         found = False
         lines = []
@@ -34,7 +34,7 @@ class SSHAccessManager:
                     else:
                         lines.append(line)
         except Exception as e:
-            logger.error(f"Error reading configuration file {self.sshd_config_path}: {e}")
+            logger.error(f"Ошибка чтения файла конфигурации {self.sshd_config_path}: {e}")
             return
 
         if not found:
@@ -42,13 +42,13 @@ class SSHAccessManager:
         try:
             with open(self.sshd_config_path, 'w') as f:
                 f.writelines(lines)
-            logger.info(f"Option {option} set to value: {value}")
+            logger.info(f"Опция {option} установлена в значение: {value}")
         except Exception as e:
-            logger.error(f"Error writing configuration file {self.sshd_config_path}: {e}")
+            logger.error(f"Ошибка записи файла конфигурации {self.sshd_config_path}: {e}")
 
     def set_password_auth(self, enable: bool):
         """
-        Enables (True) or disables (False) password authentication.
+        Разрешает (True) или запрещает (False) аутентификацию по паролю.
         """
         value = 'yes' if enable else 'no'
         self._update_config_option("PasswordAuthentication", value)
@@ -56,7 +56,7 @@ class SSHAccessManager:
 
     def set_pubkey_auth(self, enable: bool):
         """
-        Enables (True) or disables (False) SSH key authentication.
+        Включает (True) или выключает (False) аутентификацию по SSH-ключу.
         """
         value = 'yes' if enable else 'no'
         self._update_config_option("PubkeyAuthentication", value)
@@ -64,23 +64,23 @@ class SSHAccessManager:
 
     def reload_ssh_service(self):
         """
-        Reloads the SSH service to apply changes.
+        Перезагружает SSH-сервис для применения изменений.
         """
         try:
             subprocess.check_call(['systemctl', 'reload', 'sshd'])
-            logger.info("SSH service reloaded successfully.")
+            logger.info("SSH-сервис успешно перезагружен.")
         except subprocess.CalledProcessError as e:
-            logger.error(f"Error reloading SSH service: {e}")
+            logger.error(f"Ошибка при перезагрузке SSH-сервиса: {e}")
 
     def add_ssh_key(self, username: str, public_key: str):
         """
-        Adds a public SSH key to the authorized_keys file of the specified user.
-        If the file or .ssh directory does not exist, they will be created.
+        Добавляет публичный SSH-ключ в файл authorized_keys указанного пользователя.
+        Если файл или каталог .ssh не существует, они будут созданы.
         """
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
-            logger.error(f"User {username} not found.")
+            logger.error(f"Пользователь {username} не найден.")
             return
 
         home_dir = user_info.pw_dir
@@ -97,27 +97,27 @@ class SSHAccessManager:
             keys = f.read().splitlines()
 
         if public_key.strip() in keys:
-            logger.info("Key already added.")
+            logger.info("Ключ уже добавлен.")
         else:
             with open(auth_keys, 'a') as f:
                 f.write(public_key.strip() + "\n")
-            logger.info("Key successfully added.")
+            logger.info("Ключ успешно добавлен.")
 
     def remove_ssh_key(self, username: str, public_key: str):
         """
-        Removes a public SSH key from the authorized_keys file of the specified user.
+        Удаляет публичный SSH-ключ из файла authorized_keys указанного пользователя.
         """
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
-            logger.error(f"User {username} not found.")
+            logger.error(f"Пользователь {username} не найден.")
             return
 
         home_dir = user_info.pw_dir
         auth_keys = os.path.join(home_dir, '.ssh', 'authorized_keys')
 
         if not os.path.exists(auth_keys):
-            logger.info("authorized_keys file not found.")
+            logger.info("Файл authorized_keys не найден.")
             return
 
         with open(auth_keys, 'r') as f:
@@ -126,8 +126,8 @@ class SSHAccessManager:
         new_keys = [k for k in keys if k.strip() != public_key.strip()]
 
         if len(new_keys) == len(keys):
-            logger.info("Specified key not found in authorized_keys.")
+            logger.info("Указанный ключ не найден в authorized_keys.")
         else:
             with open(auth_keys, 'w') as f:
                 f.write("\n".join(new_keys) + "\n")
-            logger.info("Key successfully removed.")
+            logger.info("Ключ успешно удалён.")
