@@ -34,9 +34,10 @@ fi
 # 2. Ввод параметров и проверка API ключа
 ########################################
 
-# 2.1 Запрос у пользователя API ключа и нового имени сервера
+# 2.1 Запрос у пользователя API ключа, нового имени сервера и имени пользователя для входа по SSH
 read -p "Введите API ключ: " API_KEY
 read -p "Введите новое имя сервера: " SERVER_NAME
+read -p "Введите имя пользователя для входа по SSH: " SSH_USER
 
 # 2.2 Получение IP адреса с основного сервера
 while true; do
@@ -57,7 +58,6 @@ done
 # Записываем введённый API ключ в файл api_tokens.json в виде JSON-массива
 echo "[\"${API_KEY}\"]" > "$INSTALL_DIR/api_tokens.json"
 
-# Выводим сообщение об успешном сохранении
 echo "API ключ сохранён в файл api_tokens.json"
 
 # 2.3 Генерация самоподписанного SSL сертификата
@@ -166,7 +166,7 @@ REGISTER_RESPONSE=$(curl -s -X POST https://silkgroup.su/api/register_server/ \
     -H "Authorization: ${API_KEY}" \
     -F "name=${SERVER_NAME}" \
     -F "ssl_certificate=@${SSL_DIR}/fullchain.pem" \
-    -F "user=$(whoami)")
+    -F "user=${SSH_USER}")
 
 info "Ответ от основного сервера:"
 echo "$REGISTER_RESPONSE"
