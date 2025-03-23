@@ -164,8 +164,7 @@ info "Registering server with the main server..."
 REGISTER_RESPONSE=$(curl -s -X POST https://silkgroup.su/api/register_server/ \
     -H "Authorization: ${API_KEY}" \
     -F "name=${SERVER_NAME}" \
-    -F "ssl_certificate=@${SSL_DIR}/fullchain.pem" \
-    -F "user=$(whoami)")
+    -F "ssl_certificate=@${SSL_DIR}/fullchain.pem")
 
 info "Response from the main server:"
 echo "$REGISTER_RESPONSE"
