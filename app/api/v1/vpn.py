@@ -9,19 +9,19 @@ from pydantic import BaseModel
 
 from app.schemas.schemas_config import *
 from app.utils.wg_manager import WireGuardManager
-from app.utils.ssh_manager import SSHAccessManager  # Предполагается, что этот класс реализован
+from app.utils.ssh_manager import SSHAccessManager
 from logger_setup import logger
 
 app = FastAPI()
 router = APIRouter()
 
-# Путь к файлу, в котором будут храниться API токены
+# Path to the file where API tokens will be stored
 API_TOKEN_FILE = "api_tokens.json"
 
 def load_api_tokens() -> list:
     """
-    Загружает список API токенов из файла.
-    Если файл не существует или данные некорректны, возвращает пустой список.
+    Loads the list of API tokens from a file.
+    If the file does not exist or the data is incorrect, returns an empty list.
     """
     try:
         with open(API_TOKEN_FILE, "r") as f:
@@ -34,7 +34,7 @@ def load_api_tokens() -> list:
 
 def save_api_tokens(tokens: list) -> None:
     """
-    Сохраняет список API токенов в файл.
+    Saves the list of API tokens to a file.
     """
     with open(API_TOKEN_FILE, "w") as f:
         json.dump(tokens, f)
@@ -52,7 +52,7 @@ async def client_exists_exception_handler(request: Request, exc: ClientExistsExc
 
 def verify_token(auth_token: str = Header(..., alias="Authorization")):
     """
-    Проверяет, что переданный токен присутствует в списке токенов, загруженном из файла.
+    Verifies that the provided token is present in the list of tokens loaded from the file.
     """
     tokens = load_api_tokens()
     if not auth_token or auth_token not in tokens:
@@ -61,8 +61,8 @@ def verify_token(auth_token: str = Header(..., alias="Authorization")):
             detail="Invalid or missing token"
         )
 
-# Эндпоинты для управления VPN (WireGuard)
-@router.get("/get-vpn-list", response_model=list[VPNConfigResponse], tags=["VPN"], summary="Возвращает список VPN-конфигураций")
+# Endpoints for VPN (WireGuard) management
+@router.get("/get-vpn-list", response_model=list[VPNConfigResponse], tags=["VPN"], summary="Returns a list of VPN configurations")
 async def get_vpn_list(token: str = Depends(verify_token)):
     wg_manager = WireGuardManager()
     wg_clients = wg_manager.get_clients_list()
@@ -71,7 +71,7 @@ async def get_vpn_list(token: str = Depends(verify_token)):
         content=wg_clients,
     )
 
-@router.post("/create-vpn", response_model=VPNCreateResponseSchema, tags=["VPN"], summary="Создание нового конфига")
+@router.post("/create-vpn", response_model=VPNCreateResponseSchema, tags=["VPN"], summary="Create a new config")
 async def create_vpn(token: str = Depends(verify_token)):
     config_name = f"{int(time.time())}"
     wg_manager = WireGuardManager()
@@ -87,7 +87,7 @@ async def create_vpn(token: str = Depends(verify_token)):
         }
     )
 
-@router.post("/delete", response_model=List[VPNRemoveSchema], tags=["VPN"], summary="Удаление конфигов")
+@router.post("/delete", response_model=List[VPNRemoveSchema], tags=["VPN"], summary="Delete configurations")
 async def post_delete_vpn(data: List[VPNListSchema], token: str = Depends(verify_token)):
     result = []
     logger.info(f"{data=}")
@@ -118,7 +118,7 @@ async def post_delete_vpn(data: List[VPNListSchema], token: str = Depends(verify
         content=result,
     )
 
-@router.get("/get-peers-info", response_model=list[VPNConfigResponse], tags=["VPN"], summary="Возвращает информацию о пирах")
+@router.get("/get-peers-info", response_model=list[VPNConfigResponse], tags=["VPN"], summary="Returns information about peers")
 async def get_peers_info(token: str = Depends(verify_token)):
     wg_manager = WireGuardManager()
     peers = wg_manager.get_peers_info()
@@ -127,86 +127,86 @@ async def get_peers_info(token: str = Depends(verify_token)):
         content=peers,
     )
 
-@router.post("/add-api-key", tags=["API Keys"], summary="Добавить новый API ключ")
+@router.post("/add-api-key", tags=["API Keys"], summary="Add a new API key")
 async def add_api_key(api_key: APIKeySchema, token: str = Depends(verify_token)):
     tokens = load_api_tokens()
     if api_key.api_key in tokens:
         return JSONResponse(
             status_code=200,
-            content={"message": "API ключ уже существует", "api_tokens": tokens}
+            content={"message": "API key already exists", "api_tokens": tokens}
         )
     tokens.append(api_key.api_key)
     save_api_tokens(tokens)
     return JSONResponse(
         status_code=200,
-        content={"message": "API ключ успешно добавлен", "api_tokens": tokens}
+        content={"message": "API key successfully added", "api_tokens": tokens}
     )
 
-@router.delete("/delete-api-key", tags=["API Keys"], summary="Удалить API ключ")
+@router.delete("/delete-api-key", tags=["API Keys"], summary="Delete API key")
 async def delete_api_key(api_key: APIKeySchema, token: str = Depends(verify_token)):
     tokens = load_api_tokens()
     if api_key.api_key not in tokens:
-        raise HTTPException(status_code=404, detail="API ключ не найден")
+        raise HTTPException(status_code=404, detail="API key not found")
     tokens.remove(api_key.api_key)
     save_api_tokens(tokens)
     return JSONResponse(
         status_code=200,
-        content={"message": "API ключ успешно удален", "api_tokens": tokens}
+        content={"message": "API key successfully deleted", "api_tokens": tokens}
     )
 
 
-# Новые Pydantic-схемы для управления SSH доступом
+# New Pydantic schemas for managing SSH access
 
 
-# Эндпоинт для включения/выключения доступа по паролю
-@router.post("/ssh/set-password-auth", tags=["SSH"], summary="Включение/выключение доступа по паролю")
+# Endpoint for enabling/disabling password authentication
+@router.post("/ssh/set-password-auth", tags=["SSH"], summary="Enable/disable password authentication")
 async def set_password_auth(request_data: SSHAuthToggleSchema, token: str = Depends(verify_token)):
     ssh_manager = SSHAccessManager()
     ssh_manager.set_password_auth(request_data.enable)
-    message = "Доступ по паролю включён." if request_data.enable else "Доступ по паролю выключен."
+    message = "Password authentication enabled." if request_data.enable else "Password authentication disabled."
     logger.info(message)
     return JSONResponse(
         status_code=200,
         content={"message": message}
     )
 
-# Эндпоинт для включения/выключения доступа по SSH ключу
-@router.post("/ssh/set-pubkey-auth", tags=["SSH"], summary="Включение/выключения доступа по SSH ключу")
+# Endpoint for enabling/disabling SSH key authentication
+@router.post("/ssh/set-pubkey-auth", tags=["SSH"], summary="Enable/disable SSH key authentication")
 async def set_pubkey_auth(request_data: SSHAuthToggleSchema, token: str = Depends(verify_token)):
     ssh_manager = SSHAccessManager()
     ssh_manager.set_pubkey_auth(request_data.enable)
-    message = "Доступ по SSH ключу включён." if request_data.enable else "Доступ по SSH ключу выключен."
+    message = "SSH key authentication enabled." if request_data.enable else "SSH key authentication disabled."
     logger.info(message)
     return JSONResponse(
         status_code=200,
         content={"message": message}
     )
 
-# Эндпоинт для добавления SSH ключа
-@router.post("/ssh/add-key", tags=["SSH"], summary="Добавление SSH ключа")
+# Endpoint for adding an SSH key
+@router.post("/ssh/add-key", tags=["SSH"], summary="Add SSH key")
 async def add_ssh_key(request_data: SSHKeySchema, token: str = Depends(verify_token)):
     ssh_manager = SSHAccessManager()
     ssh_manager.add_ssh_key(request_data.username, request_data.public_key)
-    message = f"SSH ключ для пользователя {request_data.username} успешно добавлен."
+    message = f"SSH key for user {request_data.username} successfully added."
     logger.info(message)
     return JSONResponse(
         status_code=200,
         content={"message": message}
     )
 
-# Эндпоинт для удаления SSH ключа
-@router.post("/ssh/remove-key", tags=["SSH"], summary="Удаление SSH ключа")
+# Endpoint for removing an SSH key
+@router.post("/ssh/remove-key", tags=["SSH"], summary="Remove SSH key")
 async def remove_ssh_key(request_data: SSHKeySchema, token: str = Depends(verify_token)):
     ssh_manager = SSHAccessManager()
     ssh_manager.remove_ssh_key(request_data.username, request_data.public_key)
-    message = f"SSH ключ для пользователя {request_data.username} успешно удалён."
+    message = f"SSH key for user {request_data.username} successfully removed."
     logger.info(message)
     return JSONResponse(
         status_code=200,
         content={"message": message}
     )
 
-@router.get("/ssh/get-keys", tags=["SSH"], summary="Получение SSH ключей для пользователя")
+@router.get("/ssh/get-keys", tags=["SSH"], summary="Retrieve SSH keys for a user")
 async def get_ssh_keys(username: str, token: str = Depends(verify_token)):
     ssh_manager = SSHAccessManager()
     keys = ssh_manager.get_ssh_keys(username)
@@ -215,5 +215,5 @@ async def get_ssh_keys(username: str, token: str = Depends(verify_token)):
         content={"username": username, "keys": keys}
     )
 
-# Регистрация роутера в приложении
+# Register the router with the application
 app.include_router(router)

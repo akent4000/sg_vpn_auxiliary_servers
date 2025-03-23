@@ -102,6 +102,7 @@ class SSHAccessManager:
             with open(auth_keys, 'a') as f:
                 f.write(public_key.strip() + "\n")
             logger.info("Key added successfully.")
+            self.reload_ssh_service()
 
     def remove_ssh_key(self, username: str, public_key: str):
         """
@@ -131,6 +132,7 @@ class SSHAccessManager:
             with open(auth_keys, 'w') as f:
                 f.write("\n".join(new_keys) + "\n")
             logger.info("Key removed successfully.")
+            self.reload_ssh_service()
 
     def get_ssh_keys(self, username: str):
         """
