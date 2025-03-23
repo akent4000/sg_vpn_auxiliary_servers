@@ -1,4 +1,4 @@
-import os
+п»їimport os
 import subprocess
 import pwd
 import logging
@@ -136,26 +136,26 @@ class SSHAccessManager:
 
     def get_ssh_keys(self, username: str):
         '''
-        Возвращает список всех SSH ключей для указанного пользователя, прочитанных из файла authorized_keys.
-        Если файл или каталог .ssh не существует, возвращается пустой список.
+        Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃРїРёСЃРѕРє РІСЃРµС… SSH РєР»СЋС‡РµР№ РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ, РїСЂРѕС‡РёС‚Р°РЅРЅС‹С… РёР· С„Р°Р№Р»Р° authorized_keys.
+        Р•СЃР»Рё С„Р°Р№Р» РёР»Рё РєР°С‚Р°Р»РѕРі .ssh РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚, РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ РїСѓСЃС‚РѕР№ СЃРїРёСЃРѕРє.
         '''
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
-            logger.error(f"Пользователь {username} не найден.")
+            logger.error(f"РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ {username} РЅРµ РЅР°Р№РґРµРЅ.")
             return []
 
         auth_keys_path = os.path.join(user_info.pw_dir, '.ssh', 'authorized_keys')
 
         if not os.path.exists(auth_keys_path):
-            logger.info("Файл authorized_keys не найден.")
+            logger.info("Р¤Р°Р№Р» authorized_keys РЅРµ РЅР°Р№РґРµРЅ.")
             return []
 
         try:
             with open(auth_keys_path, 'r') as f:
                 keys = [line.strip() for line in f if line.strip()]
-            logger.info(f"Найдено {len(keys)} SSH ключ(ей) для пользователя {username}.")
+            logger.info(f"РќР°Р№РґРµРЅРѕ {len(keys)} SSH РєР»СЋС‡(РµР№) РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ {username}.")
             return keys
         except Exception as e:
-            logger.error(f"Ошибка чтения файла {auth_keys_path}: {e}")
+            logger.error(f"РћС€РёР±РєР° С‡С‚РµРЅРёСЏ С„Р°Р№Р»Р° {auth_keys_path}: {e}")
             return []
