@@ -206,13 +206,13 @@ async def remove_ssh_key(request_data: SSHKeySchema, token: str = Depends(verify
         content={"message": message}
     )
 
-@router.get("/ssh/get-keys", tags=["SSH"], summary="Retrieve SSH keys for a user")
-async def get_ssh_keys(username: str, token: str = Depends(verify_token)):
+@router.post("/ssh/get-keys", tags=["SSH"], summary="Retrieve SSH keys for a user")
+async def get_ssh_keys(request: SSHKeysRequest, token: str = Depends(verify_token)):
     ssh_manager = SSHAccessManager()
-    keys = ssh_manager.get_ssh_keys(username)
+    keys = ssh_manager.get_ssh_keys(request.username)
     return JSONResponse(
         status_code=200,
-        content={"username": username, "keys": keys}
+        content={"username": request.username, "keys": keys}
     )
 
 # Register the router with the application

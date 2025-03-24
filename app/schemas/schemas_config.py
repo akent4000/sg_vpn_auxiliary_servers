@@ -72,3 +72,6 @@ class SSHAuthToggleSchema(BaseModel):
 class SSHKeySchema(BaseModel):
     username: str
     public_key: str
+
+class SSHKeysRequest(BaseModel):
+    username: str
