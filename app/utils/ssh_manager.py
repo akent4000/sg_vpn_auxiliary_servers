@@ -1,6 +1,7 @@
 ﻿import os
 import subprocess
 import pwd
+import glob
 import logging
 
 from cryptography.hazmat.primitives.asymmetric import rsa, ed25519
@@ -20,52 +21,94 @@ class SSHAccessManager:
         self.sshd_config_path = sshd_config_path
 
     def _update_config_option(self, option, value):
-        '''
-        Updates (or adds, if not found) the option in the SSH configuration file.
-        '''
+        """
+        Updates (or adds, if not found) an option in the SSH configuration file.
+        It searches for the option in the main configuration file as well as in the included files
+        specified by the Include directive.
+        """
         found = False
-        lines = []
+
+        # Read the main configuration file
         try:
             with open(self.sshd_config_path, 'r') as f:
-                for line in f:
-                    if line.strip().startswith(option):
-                        lines.append(f"{option} {value}\n")
-                        found = True
-                    else:
-                        lines.append(line)
+                main_lines = f.readlines()
         except Exception as e:
             logger.error(f"Error reading configuration file {self.sshd_config_path}: {e}")
             return
 
+        new_main_lines = []
+        for line in main_lines:
+            if line.strip().startswith(option):
+                new_main_lines.append(f"{option} {value}\n")
+                found = True
+            else:
+                new_main_lines.append(line)
+
+        # Search for Include directives and update the found files
+        include_files = []
+        for line in main_lines:
+            stripped = line.strip()
+            if stripped.startswith("Include"):
+                parts = stripped.split()
+                if len(parts) >= 2:
+                    pattern = parts[1]
+                    # Expand pattern, e.g., /etc/ssh/sshd_config.d/*.conf
+                    include_files.extend(glob.glob(pattern))
+        for inc_file in include_files:
+            try:
+                with open(inc_file, 'r') as f:
+                    inc_lines = f.readlines()
+            except Exception as e:
+                logger.error(f"Error reading file {inc_file}: {e}")
+                continue
+            new_inc_lines = []
+            updated = False
+            for line in inc_lines:
+                if line.strip().startswith(option):
+                    new_inc_lines.append(f"{option} {value}\n")
+                    found = True
+                    updated = True
+                else:
+                    new_inc_lines.append(line)
+            if updated:
+                try:
+                    with open(inc_file, 'w') as f:
+                        f.writelines(new_inc_lines)
+                    logger.info(f"Option {option} updated in {inc_file} with value: {value}")
+                except Exception as e:
+                    logger.error(f"Error writing file {inc_file}: {e}")
+
+        # If the option was not found in either the main file or included files, add it to the end of the main file
         if not found:
-            lines.append(f"\n{option} {value}\n")
+            new_main_lines.append(f"\n{option} {value}\n")
+
         try:
             with open(self.sshd_config_path, 'w') as f:
-                f.writelines(lines)
-            logger.info(f"Option {option} set to: {value}")
+                f.writelines(new_main_lines)
+            logger.info(f"Option {option} set to: {value} in the main file {self.sshd_config_path}")
         except Exception as e:
             logger.error(f"Error writing configuration file {self.sshd_config_path}: {e}")
 
     def set_password_auth(self, enable: bool):
-        '''
+        """
         Enables (True) or disables (False) password authentication.
-        '''
+        """
         value = 'yes' if enable else 'no'
         self._update_config_option("PasswordAuthentication", value)
         self.reload_ssh_service()
 
     def set_pubkey_auth(self, enable: bool):
-        '''
+        """
         Enables (True) or disables (False) SSH key authentication.
-        '''
+        """
         value = 'yes' if enable else 'no'
         self._update_config_option("PubkeyAuthentication", value)
         self.reload_ssh_service()
 
     def reload_ssh_service(self):
-        '''
+        """
         Reloads the SSH service to apply configuration changes.
-        '''
+        """
         try:
             subprocess.check_call(['systemctl', 'reload', 'sshd'])
             logger.info("SSH service reloaded successfully.")
@@ -73,10 +116,10 @@ class SSHAccessManager:
             logger.error(f"Error reloading SSH service: {e}")
 
     def add_ssh_key(self, username: str, public_key: str):
-        '''
+        """
         Adds a public SSH key to the specified user's authorized_keys file.
-        If the .ssh directory or authorized_keys file does not exist, they will be created.
-        '''
+        If the .ssh directory or the authorized_keys file does not exist, they will be created.
+        """
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
@@ -105,9 +148,9 @@ class SSHAccessManager:
             self.reload_ssh_service()
 
     def remove_ssh_key(self, username: str, public_key: str):
-        '''
+        """
         Removes the specified public SSH key from the user's authorized_keys file.
-        '''
+        """
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
@@ -135,27 +178,27 @@ class SSHAccessManager:
             self.reload_ssh_service()
 
     def get_ssh_keys(self, username: str):
-        '''
-        Возвращает список всех SSH ключей для указанного пользователя, прочитанных из файла authorized_keys.
-        Если файл или каталог .ssh не существует, возвращается пустой список.
-        '''
+        """
+        Returns a list of all SSH keys for the specified user, read from the authorized_keys file.
+        If the file or the .ssh directory does not exist, an empty list is returned.
+        """
         try:
             user_info = pwd.getpwnam(username)
         except KeyError:
-            logger.error(f"Пользователь {username} не найден.")
+            logger.error(f"User {username} not found.")
             return []
 
         auth_keys_path = os.path.join(user_info.pw_dir, '.ssh', 'authorized_keys')
 
         if not os.path.exists(auth_keys_path):
-            logger.info("Файл authorized_keys не найден.")
+            logger.info("authorized_keys file not found.")
             return []
 
         try:
             with open(auth_keys_path, 'r') as f:
                 keys = [line.strip() for line in f if line.strip()]
-            logger.info(f"Найдено {len(keys)} SSH ключ(ей) для пользователя {username}.")
+            logger.info(f"Found {len(keys)} SSH key(s) for user {username}.")
             return keys
         except Exception as e:
-            logger.error(f"Ошибка чтения файла {auth_keys_path}: {e}")
+            logger.error(f"Error reading file {auth_keys_path}: {e}")
             return []
