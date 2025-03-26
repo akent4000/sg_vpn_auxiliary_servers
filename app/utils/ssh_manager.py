@@ -108,12 +108,26 @@ class SSHAccessManager:
     def reload_ssh_service(self):
         """
         Reloads the SSH service to apply configuration changes.
+        Tries multiple common commands to restart or reload the ssh/sshd service.
         """
-        try:
-            subprocess.check_call(['systemctl', 'reload', 'sshd'])
-            logger.info("SSH service reloaded successfully.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error reloading SSH service: {e}")
+        commands = [
+            ['service', 'ssh', 'restart'],
+            ['service', 'sshd', 'restart'],
+            ['systemctl', 'reload', 'sshd'],
+            ['systemctl', 'restart', 'sshd'],
+            ['/etc/init.d/sshd', 'restart']
+        ]
+    
+        for cmd in commands:
+            try:
+                subprocess.check_call(cmd)
+                logger.info(f"SSH service reloaded successfully using: {' '.join(cmd)}")
+                return
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error reloading SSH service using: {' '.join(cmd)}: {e}")
+    
+    logger.error("Failed to reload SSH service using all known commands.")
+
 
     def add_ssh_key(self, username: str, public_key: str):
         """
