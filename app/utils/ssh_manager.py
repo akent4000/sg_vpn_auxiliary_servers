@@ -1,14 +1,15 @@
 ﻿import os
 import subprocess
 import pwd
-import glob
-import logging
-
+from typing import Optional, Tuple
 from cryptography.hazmat.primitives.asymmetric import rsa, ed25519
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
+import glob
+import time
 
 # Setup logging
+import logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
@@ -89,13 +90,69 @@ class SSHAccessManager:
         except Exception as e:
             logger.error(f"Error writing configuration file {self.sshd_config_path}: {e}")
 
+    def set_auth_methods(self,
+                     password_auth: bool,
+                     pubkey_auth: bool,
+                     permit_root_login: str,
+                     permit_empty_passwords: bool,
+                     new_password_for_user: Optional[Tuple[str, str]] = None) -> dict:
+        """
+        Sets all SSH authentication settings based on the given parameters.
+
+        :param password_auth: Enable or disable password authentication.
+        :param pubkey_auth: Enable or disable SSH key authentication.
+        :param permit_root_login: Value for the PermitRootLogin option (e.g., 'yes', 'no', 'prohibit-password', 'forced-commands-only').
+        :param permit_empty_passwords: Enable or disable empty passwords.
+        :param new_password_for_user: Optional tuple (username, new_password) to update the user's password.
+        :return: A dictionary with the status of each operation.
+        """
+        results = {}
+        try:
+            self.set_password_auth(password_auth)
+            results["password_auth"] = "updated"
+        except Exception as e:
+            results["password_auth"] = f"error: {e}"
+        
+        try:
+            self.set_pubkey_auth(pubkey_auth)
+            results["pubkey_auth"] = "updated"
+        except Exception as e:
+            results["pubkey_auth"] = f"error: {e}"
+        
+        try:
+            self.set_permit_root_login(permit_root_login)
+            results["permit_root_login"] = "updated"
+        except Exception as e:
+            results["permit_root_login"] = f"error: {e}"
+        
+        try:
+            self.set_permit_empty_passwords(permit_empty_passwords)
+            results["permit_empty_passwords"] = "updated"
+        except Exception as e:
+            results["permit_empty_passwords"] = f"error: {e}"
+        
+        if new_password_for_user:
+            try:
+                user, new_password = new_password_for_user
+                self.set_new_password_for_user(user, new_password)
+                results["new_password_for_user"] = "updated"
+            except Exception as e:
+                results["new_password_for_user"] = f"error: {e}"
+        
+        try:
+            self.reload_ssh_service()
+            results["reload_ssh_service"] = "success"
+        except Exception as e:
+            results["reload_ssh_service"] = f"error: {e}"
+
+        return results
+
     def set_password_auth(self, enable: bool):
         """
         Enables (True) or disables (False) password authentication.
         """
         value = 'yes' if enable else 'no'
         self._update_config_option("PasswordAuthentication", value)
-        self.reload_ssh_service()
 
     def set_pubkey_auth(self, enable: bool):
         """
@@ -103,7 +160,6 @@ class SSHAccessManager:
         """
         value = 'yes' if enable else 'no'
         self._update_config_option("PubkeyAuthentication", value)
-        self.reload_ssh_service()
 
     def set_permit_root_login(self, value: str):
         """
@@ -111,7 +167,6 @@ class SSHAccessManager:
         Acceptable values include: 'yes', 'no', 'prohibit-password', 'forced-commands-only', etc.
         """
         self._update_config_option("PermitRootLogin", value)
-        self.reload_ssh_service()
 
     def set_permit_empty_passwords(self, enable: bool):
         """
@@ -119,7 +174,6 @@ class SSHAccessManager:
         """
         val = "yes" if enable else "no"
         self._update_config_option("PermitEmptyPasswords", val)
-        self.reload_ssh_service()
 
     def set_new_password_for_user(self, user: str, new_password: str):
         """
@@ -141,6 +195,7 @@ class SSHAccessManager:
         """
         Reloads the SSH service to apply configuration changes.
         Tries multiple common commands to restart or reload the ssh/sshd service.
+        If all commands fail, retries after 1 second, up to 5 attempts.
         """
         commands = [
             ['service', 'ssh', 'restart'],
@@ -149,16 +204,21 @@ class SSHAccessManager:
             ['systemctl', 'restart', 'sshd'],
             ['/etc/init.d/sshd', 'restart']
         ]
-    
-        for cmd in commands:
-            try:
-                subprocess.check_call(cmd)
-                logger.info(f"SSH service reloaded successfully using: {' '.join(cmd)}")
-                return
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Error reloading SSH service using: {' '.join(cmd)}: {e}")
-    
-        logger.error("Failed to reload SSH service using all known commands.")
+        
+        max_attempts = 5
+        for attempt in range(1, max_attempts + 1):
+            for cmd in commands:
+                try:
+                    subprocess.check_call(cmd)
+                    logger.info(f"SSH service reloaded successfully using: {' '.join(cmd)}")
+                    return
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Attempt {attempt}: Error reloading SSH service using: {' '.join(cmd)}: {e}")
+            # If none of the commands succeeded, wait one second before retrying
+            logger.info(f"Retrying SSH service reload (attempt {attempt}/{max_attempts}) in 1 second...")
+            time.sleep(1)
+        
+        logger.error("Failed to reload SSH service using all known commands after 5 attempts.")
 
     def add_ssh_key(self, username: str, public_key: str):
         """

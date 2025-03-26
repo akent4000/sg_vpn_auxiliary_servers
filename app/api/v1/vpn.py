@@ -162,25 +162,39 @@ async def delete_api_key(api_key: APIKeySchema, token: str = Depends(verify_toke
 @router.post("/ssh/set-auth-methods", tags=["SSH"], summary="Set SSH authentication methods")
 async def set_auth_methods(request_data: SSHAuthMethodsSchema, token: str = Depends(verify_token)):
     ssh_manager = SSHAccessManager()
-    ssh_manager.set_password_auth(request_data.password_auth)
-    ssh_manager.set_pubkey_auth(request_data.pubkey_auth)
-    ssh_manager.set_permit_root_login(request_data.permit_root_login)
-    ssh_manager.set_permit_empty_passwords(request_data.permit_empty_passwords)
+    try:
+        results = ssh_manager.set_auth_methods(
+            password_auth=request_data.password_auth,
+            pubkey_auth=request_data.pubkey_auth,
+            permit_root_login=request_data.permit_root_login,
+            permit_empty_passwords=request_data.permit_empty_passwords,
+            new_password_for_user=request_data.new_password_for_user
+        )
+    except Exception as e:
+        logger.error(f"Error updating SSH authentication settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update SSH authentication settings.")
     
-    password_update_message = ""
-    # new_password_for_user is optional; update password if provided
-    if request_data.new_password_for_user:
-        user, new_password = request_data.new_password_for_user
-        ssh_manager.set_new_password_for_user(user, new_password)
-        password_update_message = f" Password for user {user} updated."
+    # Check the result dictionary for any errors.
+    error_messages = []
+    for key, result in results.items():
+        if isinstance(result, str) and result.startswith("error"):
+            error_messages.append(f"{key}: {result}")
+    
+    if error_messages:
+        error_detail = " ".join(error_messages)
+        logger.error(error_detail)
+        raise HTTPException(status_code=500, detail=error_detail)
     
     message = (
         f"Password authentication {'enabled' if request_data.password_auth else 'disabled'}, "
         f"SSH key authentication {'enabled' if request_data.pubkey_auth else 'disabled'}, "
         f"PermitRootLogin set to {request_data.permit_root_login}, "
         f"PermitEmptyPasswords {'enabled' if request_data.permit_empty_passwords else 'disabled'}."
-        f"{password_update_message}"
     )
+    if request_data.new_password_for_user:
+        user, _ = request_data.new_password_for_user
+        message += f" Password for user {user} updated."
+    
     logger.info(message)
     return JSONResponse(
         status_code=200,
