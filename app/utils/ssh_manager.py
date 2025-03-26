@@ -206,7 +206,7 @@ class SSHAccessManager:
             ['/etc/init.d/sshd', 'restart']
         ]
         
-        max_attempts = 5
+        max_attempts = 10
         for attempt in range(1, max_attempts + 1):
             for cmd in commands:
                 try:
