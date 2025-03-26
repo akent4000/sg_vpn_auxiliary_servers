@@ -182,10 +182,11 @@ class SSHAccessManager:
         """
         try:
             password_entry = f"{user}:{new_password}"
-            subprocess.check_call(
+            subprocess.run(
                 ["chpasswd"],
                 input=password_entry.encode(),
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                check=True
             )
             logger.info(f"Password for user {user} updated successfully.")
         except subprocess.CalledProcessError as e:
