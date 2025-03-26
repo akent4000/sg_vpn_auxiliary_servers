@@ -215,7 +215,9 @@ class SSHAccessManager:
                     return
                 except subprocess.CalledProcessError as e:
                     logger.error(f"Attempt {attempt}: Error reloading SSH service using: {' '.join(cmd)}: {e}")
-            # If none of the commands succeeded, wait one second before retrying
+                except FileNotFoundError as e:
+                    logger.error(f"Attempt {attempt}: Error reloading SSH service using: {' '.join(cmd)}: {e}")
+
             logger.info(f"Retrying SSH service reload (attempt {attempt}/{max_attempts}) in 1 second...")
             time.sleep(1)
         
