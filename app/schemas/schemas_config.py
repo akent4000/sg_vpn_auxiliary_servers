@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from typing import Tuple, Optional
 
 class VPNCreateSchema(BaseModel):
     '''Создание нового конфига.'''
@@ -65,8 +65,12 @@ class APIKeySchema(BaseModel):
     api_key: str
 
 
-class SSHAuthToggleSchema(BaseModel):
-    enable: bool
+class SSHAuthMethodsSchema(BaseModel):
+    password_auth: bool
+    pubkey_auth: bool
+    permit_root_login: str
+    permit_empty_passwords: bool
+    new_password_for_user: Optional[Tuple[str, str]] = None
 
 
 class SSHKeySchema(BaseModel):

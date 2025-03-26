@@ -105,6 +105,38 @@ class SSHAccessManager:
         self._update_config_option("PubkeyAuthentication", value)
         self.reload_ssh_service()
 
+    def set_permit_root_login(self, value: str):
+        """
+        Sets the PermitRootLogin option.
+        Acceptable values include: 'yes', 'no', 'prohibit-password', 'forced-commands-only', etc.
+        """
+        self._update_config_option("PermitRootLogin", value)
+        self.reload_ssh_service()
+
+    def set_permit_empty_passwords(self, enable: bool):
+        """
+        Enables (True) or disables (False) empty passwords.
+        """
+        val = "yes" if enable else "no"
+        self._update_config_option("PermitEmptyPasswords", val)
+        self.reload_ssh_service()
+
+    def set_new_password_for_user(self, user: str, new_password: str):
+        """
+        Sets a new password for the given user.
+        Requires appropriate privileges (i.e. running as root).
+        """
+        try:
+            password_entry = f"{user}:{new_password}"
+            subprocess.check_call(
+                ["chpasswd"],
+                input=password_entry.encode(),
+                stderr=subprocess.STDOUT
+            )
+            logger.info(f"Password for user {user} updated successfully.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to update password for user {user}: {e}")
+
     def reload_ssh_service(self):
         """
         Reloads the SSH service to apply configuration changes.
@@ -126,8 +158,7 @@ class SSHAccessManager:
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error reloading SSH service using: {' '.join(cmd)}: {e}")
     
-    logger.error("Failed to reload SSH service using all known commands.")
-
+        logger.error("Failed to reload SSH service using all known commands.")
 
     def add_ssh_key(self, username: str, public_key: str):
         """
